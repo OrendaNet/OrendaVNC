@@ -512,6 +512,7 @@ typedef struct {
 #define rfbEncodingMonitorInfo              0xFFFF8005
 #define rfbEncodingUnicodeTextChat          0xFFFF8006
 #define rfbEncodingChatFileTransfer         0xFFFF8007
+#define rfbEncodingExtendedMouseButtons 0xFFFFFEC4 /* -316 */
 #define rfbEncodingHighResolutionWheel      0xFFFF8008
 
 // Same encoder number as in tight 

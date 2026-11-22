@@ -3030,6 +3030,7 @@ vncClientThread::run(void* arg)
 				int x;
 				BOOL encoding_set = FALSE;
 				bool highResolutionWheelRequested = false;
+				bool extendedMouseRequested = false;
 				bool serverStateRequested = false;
 #ifdef _Gii
 				BOOL gii_set = FALSE;
@@ -3082,6 +3083,10 @@ vncClientThread::run(void* arg)
 						continue;
 					}
 
+					if (Swap32IfLE(encoding) == rfbEncodingExtendedMouseButtons) {
+						extendedMouseRequested = true;
+						continue;
+					}
 					if (Swap32IfLE(encoding) == rfbEncodingHighResolutionWheel) {
 						highResolutionWheelRequested = true;
 						continue;
@@ -3279,6 +3284,18 @@ vncClientThread::run(void* arg)
 					}
 				}
 
+				// The update thread is suspended during SetEncodings. A zero-size
+				// pseudo-rectangle acknowledges the seven-byte pointer format.
+				if (m_client->cl_connected && extendedMouseRequested && !m_client->m_extendedMouseButtons) {
+					rfbFramebufferUpdateMsg update{};
+					update.nRects = Swap16IfLE(1);
+					rfbFramebufferUpdateRectHeader rect{};
+					rect.encoding = Swap32IfLE(rfbEncodingExtendedMouseButtons);
+					m_client->m_extendedMouseButtons =
+						m_client->SendRFBMsgQueue(rfbFramebufferUpdate, (BYTE*)&update, sz_rfbFramebufferUpdateMsg)
+						&& m_socket->SendExact((char*)&rect, sizeof(rect));
+					if (!m_client->m_extendedMouseButtons) m_client->cl_connected = FALSE;
+				}
 				// Acknowledge only after reading the entire list, regardless of order.
 				if (m_client->cl_connected && highResolutionWheelRequested && serverStateRequested) {
 					m_client->m_supportsHighResolutionWheel = true;
@@ -3781,6 +3798,19 @@ vncClientThread::run(void* arg)
 			// Use the same DSM-aware type offset as the legacy pointer path.
 			if (m_socket->ReadExact(((char*)&msg) + nTO, size - nTO))
 			{
+				BYTE sideButtons = m_client->m_sideButtons;
+				if (!preciseWheel) {
+					sideButtons = 0;
+					if (msg.pe.buttonMask & rfbButton8Mask) {
+						if (m_client->m_extendedMouseButtons) {
+							if (!m_socket->ReadExact((char*)&sideButtons, 1)) {
+								m_client->cl_connected = FALSE;
+								break;
+							}
+						} else sideButtons = 1;
+						msg.pe.buttonMask &= ~rfbButton8Mask;
+					}
+				}
 				if (preciseWheel) {
 					unsigned x, y;
 					rfb::Rect bounds = m_client->m_encodemgr.m_buffer->GetViewerSize();
@@ -3996,6 +4026,7 @@ vncClientThread::run(void* arg)
 							}
 						}
 					}
+					m_client->SetSideButtons(sideButtons);
 					// Save the old position
 					m_client->m_ptrevent = msg.pe;
 
@@ -5323,6 +5354,7 @@ vncClientThread::run(void* arg)
 		helper::close_handle(m_client->m_hSrcFile);
 	}
 
+	m_client->SetSideButtons(0);
 	// Move into the thread's original desktop
 	// TAG 14
 	desktopSelector::SelectHDESK(home_desktop);
@@ -6043,6 +6075,20 @@ vncClient::SendRFBMsgQueue(CARD8 type, BYTE* buffer, int buflen)
 		return FALSE;
 	}
 	return TRUE;
+}
+
+void vncClient::SetSideButtons(BYTE buttons)
+{
+	for (unsigned int index = 0; index < 2; ++index) {
+		const BYTE bit = static_cast<BYTE>(1u << index);
+		if (!((buttons ^ m_sideButtons) & bit)) continue;
+		INPUT event{};
+		event.type = INPUT_MOUSE;
+		event.mi.dwFlags = buttons & bit ? MOUSEEVENTF_XDOWN : MOUSEEVENTF_XUP;
+		event.mi.mouseData = index == 0 ? XBUTTON1 : XBUTTON2;
+		event.mi.dwExtraInfo = m_server->SendExtraMouse() ? DWEXTRA_VNC_REMOTE : 0;
+		if (::SendInput(1, &event, sizeof(event)) == 1) m_sideButtons ^= bit;
+	}
 }
 
 BOOL

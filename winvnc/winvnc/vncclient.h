@@ -487,6 +487,9 @@ protected:
 	bool			m_unicode;
 	bool			m_supportsUnicodeTextChat;
 	bool			m_supportsHighResolutionWheel;
+	bool m_extendedMouseButtons = false;
+	BYTE m_sideButtons = 0;
+	void SetSideButtons(BYTE buttons);
 	bool			m_supportsChatFileTransfer;
 	int				m_capability;
 	vncClientId		m_id;
