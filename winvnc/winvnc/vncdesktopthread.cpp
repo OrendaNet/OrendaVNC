@@ -835,6 +835,11 @@ vncDesktopThread::run_undetached(void *arg)
 	looping=true;
 	SetEvent(m_desktop->restart_event);
 	bool blit_polling = false;
+	// High-refresh sessions opt in with the existing MaxFPS setting. Match
+	// both the GDI polling fallback and the driver throttle to that cadence.
+	const int requestedFPS = settings->getMaxFPS();
+	const DWORD fastInterval = requestedFPS > 30 ? 1000 / std::min(requestedFPS, 60) : 0;
+	if (fastInterval) MIN_UPDATE_INTERVAL_MIN = fastInterval;
 	DWORD lastFullFrameTime = GetTimeFunction();
 	
 	rgncache.assign_union(rfb::Region2D(m_desktop->m_Cliprect));
@@ -887,7 +892,7 @@ vncDesktopThread::run_undetached(void *arg)
 			DWORD dw;
 			if (ThreadHandleCheckCursorUpdates == NULL)
 				ThreadHandleCheckCursorUpdates = CreateThread(NULL, 0, ThreadCheckCursorUpdates, this, 0, &dw);
-			waittime = 33; // possible this need to be higher to lower cpu usage
+			waittime = fastInterval ? fastInterval : 33;
 			blit_polling = true;
 		}
 			   
@@ -944,7 +949,7 @@ vncDesktopThread::run_undetached(void *arg)
 								}
 							}
 							else
-								MIN_UPDATE_INTERVAL = 25;
+								MIN_UPDATE_INTERVAL = fastInterval ? fastInterval : 25;
 
 								// MAX 30fps
 							newtick = GetTimeFunction();
