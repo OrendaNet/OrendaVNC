@@ -151,8 +151,8 @@ void SettingsManager::setDefaults()
 	m_pref_Primary = true;
 	m_pref_Secondary = false;
 #ifndef SC_20
-	m_pref_AutoPortSelect = TRUE;
-	m_pref_EnableHTTPConnect = TRUE;
+	m_pref_AutoPortSelect = FALSE;
+	m_pref_EnableHTTPConnect = FALSE;
 	m_pref_PortNumber = RFB_PORT_OFFSET;
 	m_pref_EnableConnection = TRUE;
 	m_pref_HttpPortNumber = DISPLAY_TO_HPORT(PORT_TO_DISPLAY(m_pref_PortNumber));
@@ -201,7 +201,7 @@ void SettingsManager::setDefaults()
 	m_pref_allowproperties = TRUE;
 	m_pref_allowInjection = FALSE;
 	m_pref_UseDSMPlugin = FALSE;
-	m_pref_EnableFileTransfer = TRUE;
+	m_pref_EnableFileTransfer = FALSE;
 	m_pref_FTUserImpersonation = TRUE;
 	memset(reinterpret_cast<void*>(m_pref_FileTransferRoot), 0, sizeof(m_pref_FileTransferRoot));
 	m_pref_EnableBlankMonitor = TRUE;
@@ -224,7 +224,7 @@ void SettingsManager::setDefaults()
 #ifdef SC_20
 	m_pref_Noscreensaver = 1;	
 #endif // SC_20
-	m_pref_LoopbackOnly = false;
+	m_pref_LoopbackOnly = true;
 	m_pref_AllowLoopback = true;
 	m_pref_AuthRequired = true;
 #ifdef SC_20
