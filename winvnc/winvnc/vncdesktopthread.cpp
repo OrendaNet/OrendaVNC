@@ -1038,8 +1038,15 @@ vncDesktopThread::run_undetached(void *arg)
 									//************* Polling ---- no driver
 									//****************************************************************************
 									if (!m_desktop->m_hookdriver || !m_desktop->can_be_hooked || m_desktop->no_default_desktop) {
-										if (!s_moved)
+										if (fastInterval && settings->getLoopbackOnly() && !PreConnect &&
+											!m_desktop->m_hookdriver && old_inputDesktopSelected == 1) {
+											// A moving pointer and a one-pixel caret both defeat the sparse
+											// polling grid. Capture once and compare every block row.
+											m_desktop->m_buffer.SetAccuracy(1);
+											rgncache.assign_union(m_desktop->m_Cliprect);
+										} else if (!s_moved) {
 											do_polling(threadHandle, rgncache, fullpollcounter, cursormoved);
+										}
 									}
 									//****************************************************************************
 									//************* driver  No polling
@@ -1055,7 +1062,7 @@ vncDesktopThread::run_undetached(void *arg)
 										// (and in every viewer, reconnects included) until something
 										// else repaints that area. The driver already limits the
 										// check to the changed rectangles, so sampling buys little.
-										if (!settings->getTurboMode())
+										if (!settings->getTurboMode() || (fastInterval && settings->getLoopbackOnly()))
 											m_desktop->m_buffer.SetAccuracy(1);
 										else if (cursormoved)
 											m_desktop->m_buffer.SetAccuracy(2);

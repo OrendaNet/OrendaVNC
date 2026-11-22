@@ -167,6 +167,7 @@ static keymap_t keymap[] = {
 
     // Modifiers
     
+  { XK_Caps_Lock,        VK_CAPITAL, 0 },
   { XK_Shift_L,          VK_SHIFT, 0 },
   { XK_Shift_R,          VK_RSHIFT, 0 },
   { XK_Control_L,        VK_CONTROL, 0 },
@@ -921,7 +922,17 @@ public:
       BOOL capslockOn = (GetKeyState(VK_CAPITAL) & 1) != 0;
 
       BYTE modifierState = HIBYTE(s);
-      modifierState = capslockOn ? modifierState ^ 1 : modifierState;
+      // Shortcut modifiers arrive as independent press/release events. Inferring
+      // Shift from the case of a character turns Ctrl+A into Ctrl+Shift+A when
+      // the two machines have different Caps Lock states. Keep AltGr text on
+      // its normal layout-dependent path.
+      const bool shortcut = (GetAsyncKeyState(VK_CONTROL) | GetAsyncKeyState(VK_LMENU) |
+                             GetAsyncKeyState(VK_LWIN) | GetAsyncKeyState(VK_RWIN)) & 0x8000;
+      if (shortcut && !(modifierState & 6) && !(GetAsyncKeyState(VK_RMENU) & 0x8000)) {
+        doKeyboardEvent(vkCode, down ? 0 : KEYEVENTF_KEYUP);
+        return;
+      }
+      if (capslockOn && IsCharAlphaW(static_cast<WCHAR>(keysym))) modifierState ^= 1;
       KeyStateModifier ctrl(VK_CONTROL);
       KeyStateModifier alt(VK_MENU);
       KeyStateModifier shift(VK_SHIFT);
